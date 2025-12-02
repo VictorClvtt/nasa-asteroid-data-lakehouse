@@ -3,7 +3,6 @@ print("Importing libraries, variables and initializing a Spark session...")
 from pyspark.sql import SparkSession
 import pyspark.sql.functions as F
 
-import os
 from datetime import datetime
 
 from utils.variables import load_env_vars

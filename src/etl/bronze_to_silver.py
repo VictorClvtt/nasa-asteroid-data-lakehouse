@@ -6,7 +6,6 @@ import pyspark.sql.functions as F
 from datetime import datetime
 
 from utils.variables import load_env_vars
-from utils.data_cleaning import drop_columns
 from utils.bucket import df_to_bucket
 
 access_key, secret_key, bucket_name, bucket_endpoint = load_env_vars()
@@ -51,7 +50,6 @@ df_objects = (
         F.col("col.is_potentially_hazardous_asteroid").cast("boolean").alias("is_hazardous"),
         F.col("col.is_sentry_object").cast("boolean").alias("is_sentry"),
         F.col("col.nasa_jpl_url").cast("string").alias("nasa_jpl_url"),
-        F.col("col.sentry_data").cast("string").alias("sentry_data"),
         F.col("col.links.self").cast("string").alias("link_self"),
 
         # Diâmetros
@@ -137,11 +135,6 @@ print("Checking Unique Values...\n")
 for col in df_objects.columns:
     print(f"Unique values on '{col}': {df_objects.select(col).distinct().count()}")
     df_objects.select(col).distinct().show(truncate=False)
-
-# %%
-print("Dropping unnecessary columns...\n")
-
-df_objects = drop_columns(df=df_objects, cols_to_drop=["sentry_data"])
 
 # %%
 print("Recording processed data to the Silver layer...\n")
