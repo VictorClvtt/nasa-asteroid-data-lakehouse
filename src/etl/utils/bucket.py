@@ -22,7 +22,6 @@ def create_bucket_if_not_exists(bucket_endpoint, access_key, secret_key, bucket_
         else:
             raise e
 
-
 def file_to_bucket(bucket_endpoint, access_key, secret_key, bucket_name, path, data):
 
     create_bucket_if_not_exists(bucket_endpoint, access_key, secret_key, bucket_name)
@@ -34,15 +33,20 @@ def file_to_bucket(bucket_endpoint, access_key, secret_key, bucket_name, path, d
         aws_secret_access_key=secret_key
     )
 
-    json_bytes = json.dumps(data, indent=2).encode("utf-8")
+    # Se o arquivo já for bytes (ex: DuckDB, Parquet), manda direto
+    if isinstance(data, bytes):
+        body = data
+    else:
+        # Caso contrário, assume que é JSON serializável
+        body = json.dumps(data, indent=2).encode("utf-8")
 
     s3.put_object(
         Bucket=bucket_name,
         Key=path,
-        Body=json_bytes
+        Body=body
     )
 
-    print(f"✅ Data saved in s3://{path}")
+    print(f"✅ File saved in s3://{bucket_name}/{path}")
 
 def df_to_bucket(df, path: str, partition_by: str=None, mode: str="append"):
     if partition_by:
