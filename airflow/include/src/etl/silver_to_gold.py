@@ -6,10 +6,10 @@ import pyspark.sql.functions as F
 import os
 from datetime import datetime
 
-from utils.variables import load_env_vars
-from utils.bucket import df_to_bucket
+from include.src.utils.variables import load_env_vars
+from include.src.utils.bucket import df_to_bucket
 
-_, _, bucket_name, _ = load_env_vars()
+_, _, _, bucket_name, _ = load_env_vars()
 
 today_str = datetime.today().strftime("%Y-%m-%d")
 

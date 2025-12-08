@@ -5,19 +5,12 @@ from pathlib import Path
 from dotenv import load_dotenv
 import requests
 
-from .utils.bucket import file_to_bucket
+from ..utils.bucket import file_to_bucket
+from ..utils.variables import load_env_vars
 
 def bronze_ingest():
     # Carregando e salvando variaveis do .env
-    env_path = Path(__file__).parent.parent.parent / ".env"
-
-    load_dotenv(env_path)
-
-    api_key = os.getenv("NASA_API_KEY")
-    access_key = os.getenv("AWS_ACCESS_KEY_ID")
-    secret_key = os.getenv("AWS_SECRET_ACCESS_KEY")
-    bucket_name = os.getenv("BUCKET_NAME")
-    bucket_endpoint = os.getenv("BUCKET_ENDPOINT")
+    api_key, access_key, secret_key, bucket_name, bucket_endpoint = load_env_vars()
 
     #%%
     url = "https://api.nasa.gov/neo/rest/v1/feed"
