@@ -5,9 +5,9 @@ from airflow.providers.apache.spark.operators.spark_submit import SparkSubmitOpe
 
 from include.src.etl.bronze_ingest import bronze_ingest
 
-from include.src.etl.utils.variables import load_env_vars
+from include.src.utils.variables import load_env_vars
 
-access_key, secret_key, _, bucket_endpoint = load_env_vars()
+_, access_key, secret_key, _, bucket_endpoint = load_env_vars()
 
 default_args = {
     "owner": "airflow",

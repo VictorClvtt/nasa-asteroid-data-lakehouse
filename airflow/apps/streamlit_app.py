@@ -1,7 +1,7 @@
 import streamlit as st
 import duckdb
 from pathlib import Path
-from etl.utils.variables import load_env_vars
+from include.src.utils.variables import load_env_vars
 
 st.set_page_config(page_title="Catálogo GOLD - DuckDB + MinIO", layout="wide")
 
@@ -39,7 +39,7 @@ def load_table(con, path):
     ).df()
 
 
-st.title("📀 Catálogo GOLD — DuckDB + MinIO (Visualização)")
+st.title("📀 Catálogo GOLD")
 
 # Inicializa conexão e pega bucket name
 con, bucket_name = init_connection()

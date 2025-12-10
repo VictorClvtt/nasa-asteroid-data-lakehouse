@@ -3,19 +3,30 @@ print("Importing libraries, variables and initializing a Spark session...")
 from pyspark.sql import SparkSession
 import pyspark.sql.functions as F
 
-import os
 from datetime import datetime
 
-from include.src.utils.variables import load_env_vars
-from include.src.utils.bucket import df_to_bucket
+import os, sys
 
-_, _, _, bucket_name, _ = load_env_vars()
+current_dir = os.path.dirname(os.path.abspath(__file__))
+project_root = os.path.abspath(os.path.join(current_dir, "..", ".."))
+sys.path.append(project_root)
+
+from include.src.utils.variables import load_env_vars
+from include.src.utils.bucket import save_or_update_table
+
+_, access_key, secret_key, bucket_name, bucket_endpoint = load_env_vars()
 
 today_str = datetime.today().strftime("%Y-%m-%d")
 
-spark = (
-    SparkSession.builder.appName("Silver to Gold").getOrCreate()
-)
+spark = SparkSession.builder \
+    .appName("bronze_to_silver") \
+    .config("spark.jars.packages", "org.apache.hadoop:hadoop-aws:3.4.1,com.amazonaws:aws-java-sdk-bundle:1.12.698") \
+    .config("spark.hadoop.fs.s3a.endpoint", bucket_endpoint) \
+    .config("spark.hadoop.fs.s3a.access.key", access_key) \
+    .config("spark.hadoop.fs.s3a.secret.key", secret_key) \
+    .config("spark.hadoop.fs.s3a.path.style.access", "true") \
+    .config("spark.hadoop.fs.s3a.connection.ssl.enabled", "false") \
+    .getOrCreate()
 
 # %%
 print("Reading data from the Silver layer...")
@@ -52,8 +63,10 @@ dim_approach_date = (
     .withColumn("hour", F.hour("parsed_ts"))
     .withColumn("minute", F.minute("parsed_ts"))
     .withColumn("week_of_year", F.weekofyear("parsed_ts"))
-    # surrogate key
-    .withColumn("sk_approach_date", F.monotonically_increasing_id())
+    .withColumn(
+        "sk_approach_date",
+        F.sha2(F.concat_ws("||", F.col("approach_date_full")), 256)
+    )
 )
 
 dim_approach_date.printSchema()
@@ -63,7 +76,10 @@ dim_orbiting_body = (
     df.select("orbiting_body")
     .dropna()
     .dropDuplicates()
-    .withColumn("sk_orbiting_body", F.monotonically_increasing_id())
+    .withColumn(
+        "sk_orbiting_body",
+        F.sha2(F.col("orbiting_body"), 256)
+    )
 )
 dim_orbiting_body.printSchema()
 
@@ -99,7 +115,10 @@ dim_asteroid = (
     .withColumn("diam_max_mi", F.col("diam_max_mi").cast("double"))
     .withColumn("is_hazardous", F.col("is_hazardous").cast("boolean"))
     .withColumn("is_sentry", F.col("is_sentry").cast("boolean"))
-    .withColumn("sk_asteroid", F.monotonically_increasing_id())
+    .withColumn(
+        "sk_asteroid",
+        F.sha2(F.col("id").cast("string"), 256)
+    )
 )
 dim_asteroid.printSchema()
 
@@ -107,45 +126,45 @@ dim_asteroid.printSchema()
 print('📦 "fact_asteroid_approach" table schema:')
 fact_asteroid_approach = (
     df
-    # Join com DimAsteroide
-    .join(dim_asteroid.select("id", "sk_asteroid"), on="id", how="left")
-
-    # Join com DimOrbitingBody
-    .join(dim_orbiting_body.select("orbiting_body", "sk_orbiting_body"),
-        on="orbiting_body", how="left")
-
-    # Join com DimApproachDate
-    .join(dim_approach_date.select("approach_date_full", "sk_approach_date"),
-        on="approach_date_full", how="left")
-
-    # Seleção final
     .select(
-        "sk_asteroid",
-        "sk_orbiting_body",
-        "sk_approach_date",
+        # SKs geradas direto na fato (hashes)
+        F.sha2(F.col("id").cast("string"), 256).alias("sk_asteroid"),
+        F.sha2(F.col("orbiting_body"), 256).alias("sk_orbiting_body"),
+        F.sha2(F.col("approach_date_full"), 256).alias("sk_approach_date"),
 
-        # medidas numéricas
-        F.col("velocity_km_h").cast("double").alias("velocity_km_h"),
-        F.col("velocity_km_s").cast("double").alias("velocity_km_s"),
-        F.col("velocity_mi_h").cast("double").alias("velocity_mi_h"),
+        # Medidas numéricas
+        F.col("velocity_km_h").cast("double"),
+        F.col("velocity_km_s").cast("double"),
+        F.col("velocity_mi_h").cast("double"),
 
-        F.col("miss_au").cast("double").alias("miss_au"),
-        F.col("miss_km").cast("double").alias("miss_km"),
-        F.col("miss_mi").cast("double").alias("miss_mi"),
-        F.col("miss_lunar").cast("double").alias("miss_lunar"),
+        F.col("miss_au").cast("double"),
+        F.col("miss_km").cast("double"),
+        F.col("miss_mi").cast("double"),
+        F.col("miss_lunar").cast("double"),
 
-        F.col("approach_epoch")
+        F.col("approach_epoch").cast("long")
     )
 )
 fact_asteroid_approach.printSchema()
 
 # %%
 print("Recording processed data to the Gold layer...\n")
-    
-df_to_bucket(dim_asteroid, path=f"s3a://{bucket_name}/gold/dim_asteroid/")
-df_to_bucket(dim_approach_date, path=f"s3a://{bucket_name}/gold/dim_approach_date/")
-df_to_bucket(dim_orbiting_body, path=f"s3a://{bucket_name}/gold/dim_orbiting_body/")
-df_to_bucket(fact_asteroid_approach, path=f"s3a://{bucket_name}/gold/fact_asteroid_approach/")
+
+save_or_update_table(dim_asteroid,
+                    f"s3a://{bucket_name}/gold/dim_asteroid/",
+                    dedup_cols=["id"])
+
+save_or_update_table(dim_approach_date,
+                    f"s3a://{bucket_name}/gold/dim_approach_date/",
+                    dedup_cols=["approach_date_full"])
+
+save_or_update_table(dim_orbiting_body,
+                    f"s3a://{bucket_name}/gold/dim_orbiting_body/",
+                    dedup_cols=["orbiting_body"])
+
+save_or_update_table(fact_asteroid_approach,
+                    f"s3a://{bucket_name}/gold/fact_asteroid_approach/",
+                    dedup_cols=["sk_asteroid", "sk_approach_date"])
 
 print(f"✅ Data from {today_str} recorded successfully!")
 # %%

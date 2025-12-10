@@ -2,6 +2,12 @@
 from datetime import datetime
 import requests
 
+import os, sys
+
+current_dir = os.path.dirname(os.path.abspath(__file__))
+project_root = os.path.abspath(os.path.join(current_dir, "..", ".."))
+sys.path.append(project_root)
+
 from src.utils.bucket import file_to_bucket
 from src.utils.variables import load_env_vars
 

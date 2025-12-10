@@ -72,7 +72,7 @@ services:
     ports:
       - "8501:8501"
     volumes:
-      - ./include/src/etl:/app/etl
+      - ./include:/app/include
       - ./apps:/app
     env_file:
       - ./include/.env

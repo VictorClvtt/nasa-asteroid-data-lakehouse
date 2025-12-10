@@ -1,7 +1,7 @@
 import streamlit as st
 import duckdb
 from pathlib import Path
-from etl.utils.variables import load_env_vars
+from utils.variables import load_env_vars
 
 st.set_page_config(page_title="Catálogo GOLD - DuckDB + MinIO", layout="wide")
 

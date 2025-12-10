@@ -1,6 +1,7 @@
 import json
 import boto3
 from botocore.exceptions import ClientError
+from pyspark.sql.utils import AnalysisException
 
 def create_bucket_if_not_exists(bucket_endpoint, access_key, secret_key, bucket_name):
     s3 = boto3.client(
@@ -21,7 +22,6 @@ def create_bucket_if_not_exists(bucket_endpoint, access_key, secret_key, bucket_
             print(f"✅ Bucket '{bucket_name}' succesfully created!")
         else:
             raise e
-
 
 def file_to_bucket(bucket_endpoint, access_key, secret_key, bucket_name, path, data):
 
@@ -59,3 +59,31 @@ def df_to_bucket(df, path: str, partition_by: str=None, mode: str="append"):
         df.write \
             .mode(mode) \
             .parquet(path)
+
+def save_or_update_table(df_new, path, dedup_cols, format="parquet", mode="overwrite"):
+    spark = df_new.sparkSession
+
+    print(f"🔍 Checking if table exists at: {path}")
+
+    try:
+        df_existing = spark.read.format(format).load(path)
+        table_exists = True
+        print("📂 Existing table found — merging and deduplicating.")
+    except AnalysisException:
+        df_existing = None
+        table_exists = False
+        print("🆕 Table does not exist — creating it for the first time.")
+
+    # Merge + Deduplicação
+    if table_exists:
+        df_final = (
+            df_existing.unionByName(df_new, allowMissingColumns=True)
+            .dropDuplicates(dedup_cols)
+        )
+    else:
+        df_final = df_new
+
+    # Gravar
+    df_final.write.format(format).mode(mode).save(path)
+
+    print(f"✅ Table saved/updated successfully at: {path}\n")

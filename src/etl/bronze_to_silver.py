@@ -5,6 +5,12 @@ import pyspark.sql.functions as F
 
 from datetime import datetime
 
+import os, sys
+
+current_dir = os.path.dirname(os.path.abspath(__file__))
+project_root = os.path.abspath(os.path.join(current_dir, "..", ".."))
+sys.path.append(project_root)
+
 from src.utils.variables import load_env_vars
 from src.utils.bucket import df_to_bucket
 
