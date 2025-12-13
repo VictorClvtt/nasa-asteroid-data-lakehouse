@@ -17,7 +17,7 @@ def init_connection():
     con.execute("LOAD delta;")
 
     # Vars de ambiente
-    access_key, secret_key, bucket_name, bucket_endpoint = load_env_vars(env_base_path=Path(__file__).parent)
+    _, access_key, secret_key, bucket_name, bucket_endpoint = load_env_vars(env_base_path=Path(__file__).parent)
 
     bucket_endpoint = bucket_endpoint.replace("http://", "").replace("https://", "").rstrip("/")
 
